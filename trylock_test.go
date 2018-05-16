@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+func TestMutexLock(t *testing.T) {
+	mu := New()
+
+	mu.Lock()
+	mu.Unlock()
+	mu.Lock()
+	mu.Unlock()
+
+	mu.RLock()
+	mu.RUnlock()
+	mu.RLock()
+	mu.RUnlock()
+}
+
 func TestMutexLockTryLock(t *testing.T) {
 	mu := New()
 
