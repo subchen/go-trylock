@@ -18,6 +18,32 @@ func TestMutexLockTryLock(t *testing.T) {
 	mu.Unlock()
 }
 
+func TestMutexLockAfterUnlock(t *testing.T) {
+	mu := New()
+	mu.Lock()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		mu.Unlock()
+	}()
+
+	mu.Lock()
+	mu.Unlock()
+}
+
+func TestMutexLockAfterRUnlock(t *testing.T) {
+	mu := New()
+	mu.RLock()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		mu.RUnlock()
+	}()
+
+	mu.Lock()
+	mu.Unlock()
+}
+
 func TestMutexLockTryLockTimeout(t *testing.T) {
 	mu := New()
 	mu.Lock()
