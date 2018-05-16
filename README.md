@@ -13,6 +13,8 @@ TryLock support on read-write lock for Golang
 
 Have same interfaces with [`sync.RWMutex`](https://golang.org/src/sync/rwmutex.go?s=987:1319#L18)
 
+Documentation can be found at [Godoc](https://godoc.org/github.com/subchen/go-trylock)
+
 ## Examples
 
 ```go
@@ -42,3 +44,7 @@ func goroutineRead() {
     // read something
 }
 ```
+
+## LICENSE
+
+Apache 2.0
