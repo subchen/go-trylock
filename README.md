@@ -1,7 +1,8 @@
 # go-trylock
 
-[![Build Status](https://travis-ci.org/subchen/go-trylock.svg?branch=master)](https://travis-ci.org/subchen/go-trylock)
 [![GoDoc](https://godoc.org/github.com/subchen/go-trylock?status.svg)](https://godoc.org/github.com/subchen/go-trylock)
+[![Build Status](https://travis-ci.org/subchen/go-trylock.svg?branch=master)](https://travis-ci.org/subchen/go-trylock)
+[![Coverage Status](https://coveralls.io/repos/github/subchen/go-trylock/badge.svg?branch=master)](https://coveralls.io/github/subchen/go-trylock?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/subchen/go-trylock)](https://goreportcard.com/report/github.com/subchen/go-trylock)
 [![License](http://img.shields.io/badge/License-Apache_2-red.svg?style=flat)](http://www.apache.org/licenses/LICENSE-2.0)
 
