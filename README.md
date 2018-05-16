@@ -24,7 +24,7 @@ import (
 
 var mu = trylock.New()
 
-func gorountineWrite() error {
+func goroutineWrite() error {
     if ok := mu.TryLock(1 * time.Second); !ok {
     	return errors.New("timeout, cannot TryLock !!!")
     }
@@ -33,7 +33,7 @@ func gorountineWrite() error {
     // write something
 }
 
-func gorountineRead() {
+func goroutineRead() {
     if ok := mu.TryRLock(1 * time.Second); !ok {
     	return errors.New("timeout, cannot TryRLock !!!")
     }
