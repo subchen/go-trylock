@@ -21,17 +21,19 @@ func TestMutexLockTryLock(t *testing.T) {
 func TestMutexLockTryLockTimeout(t *testing.T) {
 	mu := New()
 	mu.Lock()
+
+	if ok := mu.TryLock(10 * time.Millisecond); ok {
+		t.Errorf("should not Lock in 10ms !!!")
+	}
+
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		mu.Unlock()
 	}()
+	if ok := mu.TryLock(200 * time.Millisecond); !ok {
+		t.Errorf("cannot Lock after 200ms !!!")
+	}
 
-	if ok := mu.TryLock(5 * time.Millisecond); ok {
-		t.Errorf("should not Lock in 5ms !!!")
-	}
-	if ok := mu.TryLock(20 * time.Millisecond); !ok {
-		t.Errorf("cannot Lock after 20ms !!!")
-	}
 	mu.Unlock()
 }
 
