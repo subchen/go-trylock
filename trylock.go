@@ -1,6 +1,7 @@
 package trylock
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -17,6 +18,9 @@ type MutexLock struct {
 	// it is not for readlock waiters because of they are need to be waked up together.
 	ch chan struct{}
 }
+
+// confirm MutexLock implements sync.Locker
+var _ sync.Locker = &MutexLock{}
 
 // New returns a new MutexLock
 func New() *MutexLock {
