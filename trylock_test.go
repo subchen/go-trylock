@@ -17,6 +17,16 @@ func TestMutexLock(t *testing.T) {
 	mu.RUnlock()
 	mu.RLock()
 	mu.RUnlock()
+	
+	mu.TryLock(0)
+	mu.Unlock()
+	mu.TryLock(5 * time.Second)
+	mu.Unlock()
+	
+	mu.TryRLock(0)
+	mu.RUnlock()
+	mu.TryRLock(5 * time.Second)
+	mu.RUnlock()
 }
 
 func TestMutexLockTryLock(t *testing.T) {
