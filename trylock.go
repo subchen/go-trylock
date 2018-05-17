@@ -63,6 +63,16 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 func (m *MutexLock) TryRLock(timeout time.Duration) bool {
 	start := time.Now()
 
+	sleepInteval := 1 * time.Millisecond
+	
+	// compute max sleep inteval (1..64 ms)
+	maxSleepInteval := timeout / 25
+	if maxSleepInteval < 1*time.Millisecond {
+		maxSleepInteval = 1 * time.Millisecond
+	} else if maxSleepInteval > 64*time.Millisecond {
+		maxSleepInteval = 64 * time.Millisecond
+	}
+
 	for {
 		n := atomic.LoadInt32(m.v)
 		if n >= 0 {
@@ -75,7 +85,11 @@ func (m *MutexLock) TryRLock(timeout time.Duration) bool {
 			return false
 		}
 
-		time.Sleep(1 * time.Millisecond)
+		// progressive sleep inteval
+		if sleepInteval < maxSleepInteval {
+			sleepInteval *= 2
+		}
+		time.Sleep(sleepInteval)
 	}
 }
 
