@@ -67,7 +67,9 @@ func (m *MutexLock) TryRLock(timeout time.Duration) bool {
 	
 	// compute max sleep inteval (1..64 ms)
 	maxSleepInteval := timeout / 25
-	if maxSleepInteval < 1*time.Millisecond {
+	if maxSleepInteval < 0 {
+		maxSleepInteval = 64 * time.Millisecond // no timeout
+	} else if maxSleepInteval < 1*time.Millisecond {
 		maxSleepInteval = 1 * time.Millisecond
 	} else if maxSleepInteval > 64*time.Millisecond {
 		maxSleepInteval = 64 * time.Millisecond
