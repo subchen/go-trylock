@@ -37,8 +37,8 @@ func goroutineWrite() error {
 }
 
 func goroutineRead() {
-    if ok := mu.TryRLock(1 * time.Second); !ok {
-    	return errors.New("timeout, cannot TryRLock !!!")
+    if ok := mu.RTryLock(1 * time.Second); !ok {
+    	return errors.New("timeout, cannot RTryLock !!!")
     }
     defer mu.RUnlock()
     

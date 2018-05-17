@@ -58,9 +58,9 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 	}
 }
 
-// TryRLock tries to lock for reading. It returns true in case of success, false if timeout.
+// RTryLock tries to lock for reading. It returns true in case of success, false if timeout.
 // A negative timeout means no timeout. If timeout is 0 that means try at once and quick return.
-func (m *MutexLock) TryRLock(timeout time.Duration) bool {
+func (m *MutexLock) RTryLock(timeout time.Duration) bool {
 	start := time.Now()
 
 	sleepInterval := 1 * time.Millisecond
@@ -102,7 +102,7 @@ func (m *MutexLock) Lock() {
 
 // RLock locks for reading. If the lock is already locked for writing, RLock blocks until the lock is available.
 func (m *MutexLock) RLock() {
-	m.TryRLock(-1)
+	m.RTryLock(-1)
 }
 
 // Unlock unlocks for writing. It is a panic if m is not locked for writing on entry to Unlock.

@@ -17,15 +17,15 @@ func TestMutexLock(t *testing.T) {
 	mu.RUnlock()
 	mu.RLock()
 	mu.RUnlock()
-	
+
 	mu.TryLock(0)
 	mu.Unlock()
 	mu.TryLock(5 * time.Second)
 	mu.Unlock()
-	
-	mu.TryRLock(0)
+
+	mu.RTryLock(0)
 	mu.RUnlock()
-	mu.TryRLock(5 * time.Second)
+	mu.RTryLock(5 * time.Second)
 	mu.RUnlock()
 }
 
@@ -87,11 +87,11 @@ func TestMutexLockTryLockTimeout(t *testing.T) {
 	mu.Unlock()
 }
 
-func TestMutexLockTryRLockTimeout(t *testing.T) {
+func TestMutexLockRTryLockTimeout(t *testing.T) {
 	mu := New()
 	mu.Lock()
 
-	if ok := mu.TryRLock(10 * time.Millisecond); ok {
+	if ok := mu.RTryLock(10 * time.Millisecond); ok {
 		t.Errorf("should not Lock in 10ms !!!")
 	}
 
@@ -99,7 +99,7 @@ func TestMutexLockTryRLockTimeout(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		mu.Unlock()
 	}()
-	if ok := mu.TryRLock(200 * time.Millisecond); !ok {
+	if ok := mu.RTryLock(200 * time.Millisecond); !ok {
 		t.Errorf("cannot Lock after 200ms !!!")
 	}
 	mu.RUnlock()
