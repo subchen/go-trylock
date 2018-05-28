@@ -45,7 +45,7 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 		if timeout < 0 {
 			<-m.ch
 		} else {
-			elapsed := deadline.Sub(time.Now())
+			elapsed := time.Until(deadline)
 			if elapsed <= 0 {
 				// timeout
 				return false
@@ -87,7 +87,7 @@ func (m *MutexLock) RTryLock(timeout time.Duration) bool {
 			}
 		}
 
-		if timeout >= 0 && time.Now().Sub(start) >= timeout {
+		if timeout >= 0 && time.Since(start) >= timeout {
 			return false
 		}
 
