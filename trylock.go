@@ -6,49 +6,77 @@ import (
 	"time"
 )
 
-// MutexLock is a simple sync.RWMutex + ability to try to Lock.
-type MutexLock struct {
-	// if v == 0, no lock
-	// if v == -1, write lock
-	// if v > 0, read lock, and v is the number of readers
-	v *int32
+// TryLocker is a RWMutex with trylock support
+type TryLocker interface {
+	// TryLock acquires the write lock without blocking.
+	// On success, returns true. On failure or timeout, returns false.
+	// A negative timeout means no timeout.
+	// A zero timeout means try and return at once.
+	TryLock(timeout time.Duration) bool
 
-	// broadcast channel
+	// Lock locks for writing.
+	// If the lock is already locked for reading or writing, Lock blocks until the lock is available.
+	Lock()
+
+	// Unlock unlocks for writing.
+	// It is a panic if is not locked for writing before.
+	Unlock()
+
+	// RTryLock acquires the read lock without blocking.
+	// On success, returns true. On failure or timeout, returns false.
+	// A negative timeout means no timeout.
+	// A zero timeout means try and return at once.
+	RTryLock(timeout time.Duration) bool
+
+	// RLock locks for reading.
+	// If the lock is already locked for writing, RLock blocks until the lock is available.
+	RLock()
+
+	// RUnlock unlocks for reading.
+	// It is a panic if is not locked for reading before.
+	RUnlock()
+}
+
+// trylocker implements TryLocker interface
+type trylocker struct {
+	// lock state
+	// if state == 0, no lock holds
+	// if state == -1, write lock holds
+	// if state > 0, read lock holds, and the value is the number of readers
+	state *int32
+
+	// a broadcast channel
 	ch chan struct{}
-	// broadcast channel locker
-	chLock sync.Mutex
+	// a locker for acquires broadcast channel
+	lock sync.Mutex
 }
 
-// confirm MutexLock implements sync.Locker
-var _ sync.Locker = &MutexLock{}
+// confirm trylocker implements sync.Locker on compiling phase
+var _ sync.Locker = &trylocker{}
 
-// New returns a new MutexLock
-func New() *MutexLock {
-	v := int32(0)
-	ch := make(chan struct{}, 1)
-	return &MutexLock{v: &v, ch: ch}
+// New create a new TryLocker instance
+func New() TryLocker {
+	return &trylocker{
+		state: new(int32),
+		ch:    make(chan struct{}, 1),
+	}
 }
 
-// TryLock tries to lock for writing. It returns true in case of success, false if timeout.
-// A negative timeout means no timeout. If timeout is 0 that means try at once and quick return.
-// If the lock is currently held by another goroutine, TryLock will wait until it has a chance to acquire it.
-func (m *MutexLock) TryLock(timeout time.Duration) bool {
+func (m *trylocker) TryLock(timeout time.Duration) bool {
 	// deadline for timeout
 	deadline := time.Now().Add(timeout)
 
 	for {
-		if atomic.CompareAndSwapInt32(m.v, 0, -1) {
+		if atomic.CompareAndSwapInt32(m.state, 0, -1) {
+			// acquire OK
 			return true
 		}
 
 		// get broadcast channel
-		m.chLock.Lock()
-		ch := m.ch
-		m.chLock.Unlock()
+		ch := m.channel()
 
-		// Waiting for wake up before trying again.
+		// waiting for broadcast signal or timeout
 		if timeout < 0 {
-			// waitting
 			<-ch
 		} else {
 			elapsed := time.Until(deadline)
@@ -68,28 +96,24 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 	}
 }
 
-// RTryLock tries to lock for reading. It returns true in case of success, false if timeout.
-// A negative timeout means no timeout. If timeout is 0 that means try at once and quick return.
-func (m *MutexLock) RTryLock(timeout time.Duration) bool {
+func (m *trylocker) RTryLock(timeout time.Duration) bool {
 	// deadline for timeout
 	deadline := time.Now().Add(timeout)
 
 	for {
-		n := atomic.LoadInt32(m.v)
+		n := atomic.LoadInt32(m.state)
 		if n >= 0 {
-			if atomic.CompareAndSwapInt32(m.v, n, n+1) {
+			if atomic.CompareAndSwapInt32(m.state, n, n+1) {
+				// acquire OK
 				return true
 			}
 		}
 
 		// get broadcast channel
-		m.chLock.Lock()
-		ch := m.ch
-		m.chLock.Unlock()
+		ch := m.channel()
 
 		// Waiting for wake up before trying again.
 		if timeout < 0 {
-			// waitting
 			<-ch
 		} else {
 			elapsed := time.Until(deadline)
@@ -109,28 +133,24 @@ func (m *MutexLock) RTryLock(timeout time.Duration) bool {
 	}
 }
 
-// Lock locks for writing. If the lock is already locked for reading or writing, Lock blocks until the lock is available.
-func (m *MutexLock) Lock() {
+func (m *trylocker) Lock() {
 	m.TryLock(-1)
 }
 
-// RLock locks for reading. If the lock is already locked for writing, RLock blocks until the lock is available.
-func (m *MutexLock) RLock() {
+func (m *trylocker) RLock() {
 	m.RTryLock(-1)
 }
 
-// Unlock unlocks for writing. It is a panic if m is not locked for writing on entry to Unlock.
-func (m *MutexLock) Unlock() {
-	if ok := atomic.CompareAndSwapInt32(m.v, -1, 0); !ok {
+func (m *trylocker) Unlock() {
+	if ok := atomic.CompareAndSwapInt32(m.state, -1, 0); !ok {
 		panic("Unlock() failed")
 	}
 
 	m.broadcast()
 }
 
-// RUnlock unlocks for reading. It is a panic if m is not locked for reading on entry to Unlock.
-func (m *MutexLock) RUnlock() {
-	n := atomic.AddInt32(m.v, -1)
+func (m *trylocker) RUnlock() {
+	n := atomic.AddInt32(m.state, -1)
 	if n < 0 {
 		panic("RUnlock() failed")
 	}
@@ -140,13 +160,23 @@ func (m *MutexLock) RUnlock() {
 	}
 }
 
-func (m *MutexLock) broadcast() {
+// get broadcast channel
+func (m *trylocker) channel() chan struct{} {
+	m.lock.Lock()
+	ch := m.ch
+	m.lock.Unlock()
+
+	return ch
+}
+
+// send broadcast signal
+func (m *trylocker) broadcast() {
 	newCh := make(chan struct{}, 1)
 
-	m.chLock.Lock()
+	m.lock.Lock()
 	ch := m.ch
 	m.ch = newCh
-	m.chLock.Unlock()
+	m.lock.Unlock()
 
 	// send broadcast signal
 	close(ch)
