@@ -158,6 +158,8 @@ func TestMutexLockBroadcast(t *testing.T) {
 		}()
 	}
 
+	time.Sleep(10 * time.Millisecond)
+
 	mu.Unlock()
 
 	time.Sleep(10 * time.Millisecond)
