@@ -13,10 +13,10 @@ type MutexLock struct {
 	// if v > 0, read lock, and v is the number of readers
 	v *int32
 
-	// wakeup channel
-	// it is only to wake up one of writelock waiters
-	// it is not for readlock waiters because of they are need to be waked up together.
+	// broadcast channel
 	ch chan struct{}
+	// broadcast channel locker
+	chLock sync.Mutex
 }
 
 // confirm MutexLock implements sync.Locker
@@ -26,7 +26,7 @@ var _ sync.Locker = &MutexLock{}
 func New() *MutexLock {
 	v := int32(0)
 	ch := make(chan struct{}, 1)
-	return &MutexLock{&v, ch}
+	return &MutexLock{v: &v, ch: ch}
 }
 
 // TryLock tries to lock for writing. It returns true in case of success, false if timeout.
@@ -41,9 +41,15 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 			return true
 		}
 
+		// get broadcast channel
+		m.chLock.Lock()
+		ch := m.ch
+		m.chLock.Unlock()
+
 		// Waiting for wake up before trying again.
 		if timeout < 0 {
-			<-m.ch
+			// waitting
+			<-ch
 		} else {
 			elapsed := time.Until(deadline)
 			if elapsed <= 0 {
@@ -52,7 +58,7 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 			}
 
 			select {
-			case <-m.ch:
+			case <-ch:
 				// wake up to try again
 			case <-time.After(elapsed):
 				// timeout
@@ -65,19 +71,8 @@ func (m *MutexLock) TryLock(timeout time.Duration) bool {
 // RTryLock tries to lock for reading. It returns true in case of success, false if timeout.
 // A negative timeout means no timeout. If timeout is 0 that means try at once and quick return.
 func (m *MutexLock) RTryLock(timeout time.Duration) bool {
-	start := time.Now()
-
-	sleepInterval := 1 * time.Millisecond
-
-	// compute max sleep interval (1..64 ms)
-	maxSleepInterval := timeout / 25
-	if timeout < 0 {
-		maxSleepInterval = 64 * time.Millisecond
-	} else if maxSleepInterval < 1*time.Millisecond {
-		maxSleepInterval = 1 * time.Millisecond
-	} else if maxSleepInterval > 64*time.Millisecond {
-		maxSleepInterval = 64 * time.Millisecond
-	}
+	// deadline for timeout
+	deadline := time.Now().Add(timeout)
 
 	for {
 		n := atomic.LoadInt32(m.v)
@@ -87,15 +82,30 @@ func (m *MutexLock) RTryLock(timeout time.Duration) bool {
 			}
 		}
 
-		if timeout >= 0 && time.Since(start) >= timeout {
-			return false
-		}
+		// get broadcast channel
+		m.chLock.Lock()
+		ch := m.ch
+		m.chLock.Unlock()
 
-		// progressive sleep interval
-		if sleepInterval < maxSleepInterval {
-			sleepInterval *= 2
+		// Waiting for wake up before trying again.
+		if timeout < 0 {
+			// waitting
+			<-ch
+		} else {
+			elapsed := time.Until(deadline)
+			if elapsed <= 0 {
+				// timeout
+				return false
+			}
+
+			select {
+			case <-ch:
+				// wake up to try again
+			case <-time.After(elapsed):
+				// timeout
+				return false
+			}
 		}
-		time.Sleep(sleepInterval)
 	}
 }
 
@@ -115,24 +125,29 @@ func (m *MutexLock) Unlock() {
 		panic("Unlock() failed")
 	}
 
-	select {
-	case m.ch <- struct{}{}:
-		// to wake up waiters
-	default:
-		// ch is full, skip
-	}
+	m.broadcast()
 }
 
 // RUnlock unlocks for reading. It is a panic if m is not locked for reading on entry to Unlock.
 func (m *MutexLock) RUnlock() {
-	if n := atomic.AddInt32(m.v, -1); n < 0 {
+	n := atomic.AddInt32(m.v, -1)
+	if n < 0 {
 		panic("RUnlock() failed")
 	}
 
-	select {
-	case m.ch <- struct{}{}:
-		// to wake up waiters
-	default:
-		// ch is full, skip
+	if n == 0 {
+		m.broadcast()
 	}
+}
+
+func (m *MutexLock) broadcast() {
+	newCh := make(chan struct{}, 1)
+
+	m.chLock.Lock()
+	ch := m.ch
+	m.ch = newCh
+	m.chLock.Unlock()
+
+	// send broadcast signal
+	close(ch)
 }
