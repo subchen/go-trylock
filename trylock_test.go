@@ -1,6 +1,7 @@
 package trylock
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -142,4 +143,26 @@ func TestMutexLockUnLockInvalid(t *testing.T) {
 		}
 	}()
 	mu.RUnlock()
+}
+
+func TestMutexLockBroadcast(t *testing.T) {
+	mu := New()
+	mu.Lock()
+
+	done := int32(0)
+	for i := 0; i < 3; i++ {
+		go func() {
+			mu.RLock()
+			atomic.AddInt32(&done, 1)
+			mu.RUnlock()
+		}()
+	}
+
+	mu.Unlock()
+
+	time.Sleep(10 * time.Millisecond)
+
+	if done != 3 {
+		t.Fatal("Broadcast is failed")
+	}
 }
