@@ -164,7 +164,7 @@ func TestMutexLockBroadcast(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	if done != 3 {
+	if atomic.LoadInt32(&done) != 3 {
 		t.Fatal("Broadcast is failed")
 	}
 }
