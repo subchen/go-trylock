@@ -20,15 +20,25 @@ Documentation can be found at [Godoc](https://godoc.org/github.com/subchen/go-tr
 
 ```go
 import (
+    "context"
     "time"
     "errors"
-    "github.com/subchen/go-trylock"
+    "github.com/subchen/go-trylock/v2"
 )
 
 var mu = trylock.New()
 
 func goroutineWrite() error {
-    if ok := mu.TryLock(1 * time.Second); !ok {
+    if ok := mu.TryLock(context.Background()); !ok {
+    	return errors.New("timeout, cannot TryLock !!!")
+    }
+    defer mu.Unlock()
+    
+    // write something
+}
+
+func goroutineWriteTimeout() error {
+    if ok := mu.TryLockTimeout(1 * time.Second); !ok {
     	return errors.New("timeout, cannot TryLock !!!")
     }
     defer mu.Unlock()
@@ -37,7 +47,16 @@ func goroutineWrite() error {
 }
 
 func goroutineRead() {
-    if ok := mu.RTryLock(1 * time.Second); !ok {
+    if ok := mu.RTryLock(context.Background()); !ok {
+    	return errors.New("timeout, cannot RTryLock !!!")
+    }
+    defer mu.RUnlock()
+    
+    // read something
+}
+
+func goroutineReadTimeout() {
+    if ok := mu.RTryLockTimeout(1 * time.Second); !ok {
     	return errors.New("timeout, cannot RTryLock !!!")
     }
     defer mu.RUnlock()
