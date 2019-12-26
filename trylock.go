@@ -12,8 +12,13 @@ type TryLocker interface {
 	// TryLock acquires the write lock without blocking.
 	// On success, returns true. On failure or context cancellation,
 	// returns false.
+	// A nil Context means try and return at once.
 	TryLock(context.Context) bool
 
+	// TryLockTimeout acquires the write lock without blocking.
+	// On success, returns true. On failure or timeout, returns false.
+	// A negative timeout means no timeout.
+	// A zero timeout means try and return at once.
 	TryLockTimeout(time.Duration) bool
 
 	// Lock locks for writing.
@@ -26,8 +31,13 @@ type TryLocker interface {
 
 	// RTryLock acquires the read lock without blocking.
 	// On success, returns true. On failure or timeout, returns false.
+	// A nil Context means try and return at once.
 	RTryLock(context.Context) bool
 
+	// RTryLockTimeout acquires the read lock without blocking.
+	// On success, returns true. On failure or timeout, returns false.
+	// A negative timeout means no timeout.
+	// A zero timeout means try and return at once.
 	RTryLockTimeout(time.Duration) bool
 
 	// RLock locks for reading.
