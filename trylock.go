@@ -112,6 +112,9 @@ func (m *trylocker) RTryLock(ctx context.Context) bool {
 				return true
 			}
 		}
+		if ctx == nil {
+			return false
+		}
 
 		// get broadcast channel
 		ch := m.channel()
